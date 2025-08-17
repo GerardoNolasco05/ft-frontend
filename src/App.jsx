@@ -1,17 +1,9 @@
-import { useState } from 'react'
+import Home from '/src/pages/Home'
 
-import './App.css'
-
-
-
-
-function App() {
-  
-  return (
-    <>
-      <p>Pro Fitness Training</p>
-    </>
+function App(){
+  return(
+    <Home />
   )
 }
 
-export default App
+export default App;
