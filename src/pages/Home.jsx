@@ -14,7 +14,7 @@ function Home() {
               Pro Fitness Training
             </span>{" "}
             helps you create, customize, and track workouts for your clients.
-            Easily plan sessions, monitor progress, and keep them motivated —
+            Easily plan sessions, monitor progress, and keep them motivated,
             all in one powerful app designed for trainers like you.
           </p>
         </div>
