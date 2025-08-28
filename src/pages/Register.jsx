@@ -1,16 +1,18 @@
-import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar";
 import RegisterForm from "../components/RegisterForm";
 
-function Register () {
-    return (
-       <>
-         <Navbar />
-         <div className="h-screen bg-[url('/images/ft_reg.jpg')] bg-cover bg-center pt-20 flex items-center justify-center">
-         <RegisterForm />
-         </div>
-        </>
-    )
-}
+export default function Register() {
+  return (
+    <>
+      {/* Full-viewport background */}
+      <div
+        className="fixed inset-0 z-0 bg-[url(/images/ft_reg.jpg)] bg-cover bg-center"
+        aria-hidden="true"
+      />
 
-export default Register;
+      {/* Foreground content */}
+      <div className="relative z-10 mt-20">
+        <RegisterForm />
+      </div>
+    </>
+  );
+}

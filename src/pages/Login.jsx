@@ -1,17 +1,18 @@
-import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar";
 import LoginForm from "../components/LoginForm";
 
-function Login () {
-    return (
-        <>
-         <Navbar />
-         <div className="h-screen bg-[url('/images/ft_login.jpg')] bg-cover bg-center pt-20 flex items-center justify-center">
-            <LoginForm />
-         </div>
-         
-        </>
-    )
-}
+export default function Login() {
+  return (
+    <>
+      {/* Full-viewport background */}
+      <div
+        className="fixed inset-0 z-0 bg-[url(/images/ft_login.jpg)] bg-cover bg-center"
+        aria-hidden="true"
+      />
 
-export default Login;
+      {/* Foreground content */}
+      <div className="relative z-10 mt-20">
+        <LoginForm />
+      </div>
+    </>
+  );
+}

@@ -7,7 +7,7 @@ function Navbar() {
   return (
     <>
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 h-20 bg-orange-500 flex items-center pl-10 pr-16 shadow-md z-50">
+      <nav className="fixed top-0 left-0 right-0 h-18 bg-orange-500 flex items-center pl-10 pr-16 shadow-md z-50">
         {/* Logo */}
         <img src="/images/logoFT.png" alt="Logo" className="h-6 w-auto" />
 
@@ -38,7 +38,7 @@ function Navbar() {
 
       {/* Mobile menu bar (below navbar) */}
       {showNavMenu && (
-        <div className="fixed top-20 left-0 right-0 bg-black/50 z-50 md:hidden">
+        <div className="fixed top-18 left-0 right-0 bg-black/50 z-50 md:hidden">
           <div className="flex justify-center space-x-8 py-1.5 text-white">
             <Link to="/" onClick={() => setShowNavMenu(true)}>
               Home
