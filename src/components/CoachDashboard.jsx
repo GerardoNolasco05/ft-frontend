@@ -149,11 +149,11 @@ function CoachDashboard() {
 
   return (
     <>
-      <div className="flex-col mt-30 ml-15">
+      <div className="flex-col h-screen  mt-10 ml-15 shadow-[6px_0_6px_-1px_rgba(0,0,0,0.2)]">
         <img
           src={portrait}
           alt="Portrait"
-          className="w-32 h-auto transform transition-transform duration-200"
+          className="w-32 h-auto mt-20 transform transition-transform duration-200"
         />
 
         <div className="flex flex-col items-start">

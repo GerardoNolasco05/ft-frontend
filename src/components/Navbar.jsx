@@ -1,8 +1,27 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useAuthContext } from "../context/AuthContextProvider";
+import { useNavigate } from "react-router-dom";
 
 function Navbar() {
   const [showNavMenu, setShowNavMenu] = useState(false);
+  const { token, logout } = useAuthContext();
+  const navigate = useNavigate();
+
+  const coach = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("coach") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const isLoggedIn = Boolean(token && (coach?.id || coach?._id));
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
 
   return (
     <>
@@ -16,7 +35,7 @@ function Navbar() {
           Pro Fitness Training
         </h1>
 
-        {/* Hamburger menu*/}
+        {/* Hamburger menu */}
         <button
           onClick={() => setShowNavMenu((s) => !s)}
           className="flex flex-col space-y-1 md:hidden cursor-pointer"
@@ -29,10 +48,22 @@ function Navbar() {
         </button>
 
         {/* Desktop links */}
-        <div className="hidden md:flex space-x-6 text-white">
-          <Link to="/">Home</Link>
-          <Link to="/login">Login</Link>
-          <Link to="/register">Register</Link>
+        <div className="hidden md:flex space-x-6 text-white items-center">
+          {!isLoggedIn && <Link to="/">Home</Link>}
+
+          {isLoggedIn ? (
+            <span
+              onClick={handleLogout}
+              className="cursor-pointer whitespace-nowrap"
+            >
+              Log Out
+            </span>
+          ) : (
+            <>
+              <Link to="/login">Login</Link>
+              <Link to="/register">Register</Link>
+            </>
+          )}
         </div>
       </nav>
 
@@ -40,15 +71,32 @@ function Navbar() {
       {showNavMenu && (
         <div className="fixed top-18 left-0 right-0 bg-black/50 z-50 md:hidden">
           <div className="flex justify-center space-x-8 py-1.5 text-white">
-            <Link to="/" onClick={() => setShowNavMenu(true)}>
-              Home
-            </Link>
-            <Link to="/login" onClick={() => setShowNavMenu(false)}>
-              Login
-            </Link>
-            <Link to="/register" onClick={() => setShowNavMenu(false)}>
-              Register
-            </Link>
+            {!isLoggedIn && (
+              <Link to="/" onClick={() => setShowNavMenu(false)}>
+                Home
+              </Link>
+            )}
+
+            {isLoggedIn ? (
+              <span
+                onClick={() => {
+                  setShowNavMenu(false);
+                  handleLogout();
+                }}
+                className="cursor-pointer whitespace-nowrap hover:underline"
+              >
+                Log Out
+              </span>
+            ) : (
+              <>
+                <Link to="/login" onClick={() => setShowNavMenu(false)}>
+                  Login
+                </Link>
+                <Link to="/register" onClick={() => setShowNavMenu(false)}>
+                  Register
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

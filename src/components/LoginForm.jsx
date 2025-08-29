@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "../context/AuthContextProvider";
 
 function safeJsonParse(text) {
   try { return JSON.parse(text); } catch { return null; }
+  
 }
 function extractToken(body) {
   if (!body || typeof body !== "object") return null;
@@ -21,6 +23,7 @@ export default function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const {setToken } = useAuthContext()
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -80,6 +83,7 @@ export default function LoginForm() {
 
       // 3) Persist full session
       localStorage.setItem("token", token);
+      setToken(token)
       localStorage.setItem("coach", JSON.stringify(coach));
 
      navigate(`/dashboard/coaches/${coach.id}`);

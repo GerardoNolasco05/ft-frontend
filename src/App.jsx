@@ -12,6 +12,7 @@ import Coaches from './pages/Coaches';
 // Layout components
 import RootLayout from './components/RootLayout';
 import WithDashboardLayout from './components/WithDashboardLayout';
+import RequireAuth from './components/RequireAuth';
 
 
 function App(){
@@ -24,16 +25,18 @@ function App(){
     <Route path="login" element={<Login />} />
     <Route path="register" element={<Register />} />
 
-      {/* Dashboard routes (show left sidebar via WithDashboardLayout) */}
-      <Route path="dashboard" element={<WithDashboardLayout />}>
-      <Route path="clients/:id?" element={<Clients />} /> 
-      <Route path="exercises" element={<Exercises />} />
-      <Route path="coaches/:id" element={<Coaches />} />
+      {/* Protected */}
+        <Route element={<RequireAuth />}>
+          <Route path="dashboard" element={<WithDashboardLayout />}>
+            <Route path="clients/:id?" element={<Clients />} />
+            <Route path="exercises" element={<Exercises />} />
+            <Route path="coaches/:id" element={<Coaches />} />
+          </Route>
+        </Route>
     </Route>
 
     {/* Optional fallback */}
     {/* <Route path="*" element={<NotFound />} /> */}
-  </Route>
 </Routes>
   )
 }
