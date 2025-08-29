@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ClientForm from "./ClientForm";
 import WorkoutForm from "./WorkoutForm";
 
-function ClientHub() {
+function ClientHub({ routeClientId = null }) {
+  const navigate = useNavigate();
+
   const [search, setSearch] = useState("");
   const [showClientModal, setShowClientModal] = useState(false);
 
@@ -56,15 +59,14 @@ function ClientHub() {
       if (!res.ok) throw new Error((data && (data.error || data.message)) || `Failed (${res.status})`);
       const list = Array.isArray(data) ? data : data.clients || [];
       setClients(list);
-      setPage(0);
-      if (!selectedClientId && list.length) setSelectedClientId(list[0].id);
+      // Don't forcibly set selection here; let the URL-sync effect decide.
     } catch (e) {
       setErr(e.message || "Failed to load clients");
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => { loadClients(); }, [coachId]);
+  useEffect(() => { loadClients(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [coachId]);
 
   // Modal ESC + scroll lock
   useEffect(() => {
@@ -98,19 +100,31 @@ function ClientHub() {
     return fields.some((f) => f.includes(needle));
   };
 
-  // Search updates selection AND jumps the left pager to ensure visibility
-  const performSearch = (e) => {
-    if (e) e.preventDefault();
-    setNotFound("");
-    const q = search.trim();
-    if (!q) return;
-    const absIndex = clients.findIndex((c) => matchesQuery(c, q));
-    if (absIndex === -1) { setNotFound("No client found for that search."); return; }
-    const found = clients[absIndex];
-    setSelectedClientId(found.id);
-    setPage(Math.floor(absIndex / pageSize));
-    setSearch("");
-  };
+  // ===== URL <-> selection sync =====
+  useEffect(() => {
+    if (!clients.length) return;
+
+    // 1) If URL has an id, select it if present
+    if (routeClientId) {
+      const idx = clients.findIndex(c => c.id === Number(routeClientId));
+      if (idx !== -1) {
+        setSelectedClientId(clients[idx].id);
+        setPage(Math.floor(idx / pageSize));
+        return;
+      }
+      // If URL id isn't found in list, show a small note and fall back
+      setNotFound("Client not found or not accessible.");
+    }
+
+    // 2) If nothing selected, default to first client and reflect in URL
+    if (!selectedClientId && clients[0]) {
+      const firstId = clients[0].id;
+      setSelectedClientId(firstId);
+      setPage(0);
+      // Keep the URL canonical
+      if (!routeClientId) navigate(`/dashboard/clients/${firstId}`, { replace: true });
+    }
+  }, [clients, routeClientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click on left list only changes selection (paging itself does not)
   const handleClientClick = (absoluteIndex) => {
@@ -118,6 +132,7 @@ function ClientHub() {
     if (!c) return;
     setSelectedClientId(c.id);
     setPage(Math.floor(absoluteIndex / pageSize)); // keep it visible on the left
+    navigate(`/dashboard/clients/${c.id}`);
   };
 
   // ===== Workouts (load only when user is on Workouts tab) =====
@@ -156,6 +171,21 @@ function ClientHub() {
   const wTotalPages = Math.max(1, Math.ceil(workouts.length / wPageSize));
   const wStart = wPage * wPageSize;
   const pageWorkouts = workouts.slice(wStart, wStart + wPageSize);
+
+  // Search updates selection AND jumps the left pager to ensure visibility
+  const performSearch = (e) => {
+    if (e) e.preventDefault();
+    setNotFound("");
+    const q = search.trim();
+    if (!q) return;
+    const absIndex = clients.findIndex((c) => matchesQuery(c, q));
+    if (absIndex === -1) { setNotFound("No client found for that search."); return; }
+    const found = clients[absIndex];
+    setSelectedClientId(found.id);
+    setPage(Math.floor(absIndex / pageSize));
+    setSearch("");
+    navigate(`/dashboard/clients/${found.id}`);
+  };
 
   return (
     <>
@@ -441,8 +471,18 @@ function ClientHub() {
                     });
                     if (!res.ok) console.error("Failed to delete client", await res.text());
                     await loadClients();
-                    const stillExists = clients.find(c => c.id === selectedClientId);
-                    if (!stillExists && clients[0]) setSelectedClientId(clients[0].id);
+
+                    // Choose next selection & reflect in URL
+                    const remaining = clients.filter(c => c.id !== clientToDelete.id);
+                    if (remaining.length) {
+                      const next = remaining[0].id;
+                      setSelectedClientId(next);
+                      setPage(0);
+                      navigate(`/dashboard/clients/${next}`, { replace: true });
+                    } else {
+                      setSelectedClientId(null);
+                      navigate(`/dashboard/clients`, { replace: true });
+                    }
                     setClientToDelete(null);
                   } catch (err) {
                     console.error("Error deleting client", err);

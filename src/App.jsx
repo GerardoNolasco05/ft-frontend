@@ -26,7 +26,7 @@ function App(){
 
       {/* Dashboard routes (show left sidebar via WithDashboardLayout) */}
       <Route path="dashboard" element={<WithDashboardLayout />}>
-      <Route path="clients" element={<Clients />} />
+      <Route path="clients/:id?" element={<Clients />} /> 
       <Route path="exercises" element={<Exercises />} />
       <Route path="coaches/:id" element={<Coaches />} />
     </Route>
