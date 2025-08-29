@@ -14,9 +14,6 @@ function ClientHub() {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Toast
-  const [workoutToast, setWorkoutToast] = useState("");
-
   // Clients
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -69,7 +66,7 @@ function ClientHub() {
   };
   useEffect(() => { loadClients(); }, [coachId]);
 
-  // Modal ESC + scroll lock (body never scrolls anyway, but keep behavior consistent)
+  // Modal ESC + scroll lock
   useEffect(() => {
     const anyOpen = showClientModal || showWorkoutModal || !!clientToDelete || !!workoutEdit;
     if (!anyOpen) return;
@@ -149,9 +146,9 @@ function ClientHub() {
   };
 
   useEffect(() => {
-    if (activeTab !== "workouts") return;                  // user must click "Workouts"
+    if (activeTab !== "workouts") return;
     if (!selectedClientId) return;
-    if (lastLoadedClientIdRef.current === selectedClientId) return; // avoid redundant
+    if (lastLoadedClientIdRef.current === selectedClientId) return;
     lastLoadedClientIdRef.current = selectedClientId;
     loadWorkouts(selectedClientId);
   }, [activeTab, selectedClientId]);
@@ -159,13 +156,6 @@ function ClientHub() {
   const wTotalPages = Math.max(1, Math.ceil(workouts.length / wPageSize));
   const wStart = wPage * wPageSize;
   const pageWorkouts = workouts.slice(wStart, wStart + wPageSize);
-
-  // Toast auto-hide
-  useEffect(() => {
-    if (!workoutToast) return;
-    const t = setTimeout(() => setWorkoutToast(""), 3000);
-    return () => clearTimeout(t);
-  }, [workoutToast]);
 
   return (
     <>
@@ -179,12 +169,6 @@ function ClientHub() {
           height: 0;
         }
       `}</style>
-
-      {workoutToast && activeTab === "workouts" && (
-        <div className="fixed top-24 left-10 z-[90] rounded-md bg-green-600 text-white px-4 py-2 shadow-lg">
-          {workoutToast}
-        </div>
-      )}
 
       {/* Full-height shell with NO page scrollbar */}
       <div className="h-screen overflow-hidden bg-transparent text-white">
@@ -379,7 +363,7 @@ function ClientHub() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowWorkoutModal(false); setWorkoutEdit(null); }} />
           <div className="relative z-[71] w-full max-w-[1400px]">
             <div className="relative rounded-xl border border-white/20 bg-stone-900 shadow-2xl p-7 max-h-[90vh] overflow-auto no-scrollbar">
-              <button className="absolute top-3 right-9 w-7 hover:text-orange-500/70 cursor-pointer" aria-label="Close" onClick={() => { setShowWorkoutModal(false); setWorkoutEdit(null); }}>
+              <button className="absolute top-10 right-10 w-7 hover:text-orange-500/70 cursor-pointer" aria-label="Close" onClick={() => { setShowWorkoutModal(false); setWorkoutEdit(null); }}>
                 ✕
               </button>
 
@@ -389,11 +373,11 @@ function ClientHub() {
                 clientId={selectedClient.id}
                 coachId={coachId}
                 onSaved={async () => {
-                  setWorkoutToast(workoutEdit ? "Workout successfully updated" : "Successfully workout created");
                   await loadClients();
                   if (activeTab === "workouts") {
                     await loadWorkouts(selectedClient.id);
                   }
+                  // Auto-close 2s after successful save; the form shows success inline beside the title
                   setTimeout(() => { setShowWorkoutModal(false); setWorkoutEdit(null); }, 2000);
                 }}
               />
@@ -420,7 +404,6 @@ function ClientHub() {
                     });
                     if (!res.ok) console.error("Failed to delete workout", await res.text());
                     if (activeTab === "workouts" && selectedClientId) await loadWorkouts(selectedClientId);
-                    setWorkoutToast("Workout deleted");
                   } catch (err) {
                     console.error("Error deleting workout", err);
                   } finally {

@@ -67,7 +67,7 @@ export default function WorkoutForm({
   // --------- Submit status ---------
   const [submitStatus, setSubmitStatus] = useState({ status: 'idle', message: '' }); // 'idle' | 'saving' | 'success' | 'error'
 
-  // Auto-hide inline success after 2s
+  // Auto-hide inline success after 2s (parent will close the modal)
   useEffect(() => {
     if (submitStatus.status !== 'success') return;
     const t = setTimeout(() => setSubmitStatus({ status: 'idle', message: '' }), 2000);
@@ -179,27 +179,24 @@ export default function WorkoutForm({
       setTop((t) => ({ ...t, rm_percentage: '' }));
       return;
     }
-    // Only consider loads you can actually lift (<= RM is common for work sets; keep it simple)
+    // Only consider loads you can actually lift (<= RM)
     const candidates = availLoads
       .map((w) => w.value)
       .filter((w) => w > 0 && w <= rmVal);
 
-    // For each achievable load, compute its percent of RM, rounded to nearest integer
     const seen = new Set();
     const options = [];
     for (const load of candidates) {
-      const pct = Math.round((load / rmVal) * 100); // integer % for clean UI
+      const pct = Math.round((load / rmVal) * 100);
       const key = `${pct}`;
       if (!seen.has(key)) {
         seen.add(key);
         options.push({ pct, load });
       }
     }
-    // Sort ascending % and keep unique
     options.sort((a, b) => a.pct - b.pct);
     setAchievablePercents(options);
 
-    // If current rm_percentage is no longer achievable, clear it and working weight
     const ok = options.some((o) => String(o.pct) === String(top.rm_percentage));
     if (!ok) {
       setTop((t) => ({ ...t, rm_percentage: '' }));
@@ -207,7 +204,7 @@ export default function WorkoutForm({
     }
   }, [top.rm, availLoads]);
 
-  // ======== Derived calculations (client-side preview; backend also recomputes) ========
+  // ======== Derived calculations (client-side preview) ========
   useEffect(() => {
     const toNum = (v) => {
       const n = parseFloat(String(v).replace(',', '.'));
@@ -261,7 +258,6 @@ export default function WorkoutForm({
         rom: toNum(bottom.rom),
         weight: toNum(bottom.weight),
         repetitions: toNum(bottom.repetitions),
-        // total_tempo/tut/total_rest/density are recomputed server-side now
       };
 
       let res;
@@ -310,14 +306,26 @@ export default function WorkoutForm({
 
   return (
     <div className={`w-full border border-white/40 rounded-2xl p-4 sm:p-5 bg-stone-600/50 text-white text-xs sm:text-[12px] ${className}`}>
-      <h4 className="text-sm sm:text-base font-semibold mb-3">{isEdit ? 'Update Workout' : 'Workout'}</h4>
+      {/* Title row with inline success beside it */}
+      <div className="mb-3 flex items-center gap-3">
+        <h4 className="text-sm sm:text-base font-semibold">
+          {isEdit ? 'Update Workout' : 'Workout'}
+        </h4>
 
-      {/* Inline status */}
-      {submitStatus.status === 'success' && (
-        <div className="mb-2 text-green-300 text-xs">{submitStatus.message}</div>
-      )}
+        {submitStatus.status === 'success' && (
+          <span
+            className="text-green-300 text-[11px] sm:text-xs"
+            role="status"
+            aria-live="polite"
+          >
+            {submitStatus.message}
+          </span>
+        )}
+      </div>
+
+      {/* Error (keep separate so it remains obvious) */}
       {submitStatus.status === 'error' && (
-        <div className="mb-2 text-red-300 text-xs">{submitStatus.message}</div>
+        <div className="mb-2 text-red-300 text-xs" role="alert">{submitStatus.message}</div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4 overflow-x-hidden">
@@ -420,7 +428,6 @@ export default function WorkoutForm({
                       const pct = Number(e.target.value);
                       const opt = achievablePercents.find((o) => o.pct === pct);
                       setTop((t) => ({ ...t, rm_percentage: pct }));
-                      // When selecting %1RM, set the actual working weight to the matching load
                       setBottom((b) => ({ ...b, weight: opt ? opt.load : '' }));
                     }}
                     disabled={!top.rm || achievablePercents.length === 0}
@@ -495,7 +502,7 @@ export default function WorkoutForm({
             </thead>
             <tbody>
               <tr className="text-center">
-                {['reps','sets','exercise_time','rom','weight','repetitions','total_tempo','tut','total_rest','density'].map((name, idx) => (
+                {['reps','sets','exercise_time','rom','weight','repetitions','total_tempo','tut','total_rest','density'].map((name) => (
                   <td key={name} className="border border-white/10 px-1 py-2">
                     <input
                       type="number"
@@ -504,7 +511,7 @@ export default function WorkoutForm({
                       value={bottom[name]}
                       onChange={(e) => setBottom((b) => ({ ...b, [name]: e.target.value }))}
                       className={`${baseInput} ${['total_tempo','tut','density'].includes(name) ? 'bg-white/5' : ''}`}
-                      readOnly={['total_tempo','tut','density'].includes(name)} // preview only; backend recomputes
+                      readOnly={['total_tempo','tut','density'].includes(name)}
                     />
                   </td>
                 ))}
