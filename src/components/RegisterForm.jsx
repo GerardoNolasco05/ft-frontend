@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { registerCoach, updateCoach } from "../lib/api";
 
 const emptyForm = {
   name: "",
@@ -113,47 +114,19 @@ function RegisterForm({ mode = "create", initialData = null, onUpdated, onClose 
       setSubmitting(true);
 
       if (isEdit) {
-        const token = localStorage.getItem("token");
         const id = prefill?.id;
         if (!id) {
           setError("Missing coach id for update.");
           return;
         }
-        const res = await fetch(`/coaches/${id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-        const body = await res.json().catch(() => null);
-        if (!res.ok) {
-          const msg = (body && (body.error || body.message)) || `Update failed (${res.status})`;
-          setError(msg);
-          return;
-        }
-        const updatedCoach = body?.coach || { id, ...basePayload };
+        const updatedCoach = await updateCoach(id, payload);
 
-        // Notify parent
         if (typeof onUpdated === "function") onUpdated(updatedCoach);
-
-        // Broadcast app-wide so other components (e.g., CoachProfile modal) refresh instantly
+        // Notify the app (optional)
         window.dispatchEvent(new CustomEvent("coach:updated", { detail: updatedCoach }));
       } else {
-        const res = await fetch("/coaches/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, password: form.password }),
-        });
-        const body = await res.json().catch(() => null);
-        if (!res.ok) {
-          const msg =
-            (body && (body.error || body.message)) ||
-            `Registration failed (${res.status})`;
-          setError(msg);
-          return;
-        }
+        // Create (NOTE: backend expects /coaches/ with trailing slash)
+        await registerCoach({ ...payload, password: form.password });
         setForm(emptyForm);
         navigate("/login");
       }

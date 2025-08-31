@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../context/AuthContextProvider";
+import { loginCoach, getMyProfile } from "../lib/api";
 
 function safeJsonParse(text) {
-  try { return JSON.parse(text); } catch { return null; }
-  
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
+
 function extractToken(body) {
   if (!body || typeof body !== "object") return null;
   return (
@@ -23,7 +28,7 @@ export default function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const {setToken } = useAuthContext()
+  const { setToken } = useAuthContext();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,44 +38,25 @@ export default function LoginForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSubmitting(true);
 
     try {
-      setSubmitting(true);
+      // 1) Login against the backend (goes through API_BASE)
+      const body = await loginCoach(form.email, form.password);
 
-      // 1) Login
-      const res = await fetch("/coaches/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, password: form.password }),
-      });
-
-      const text = await res.text();
-      const body = safeJsonParse(text) ?? {};
-
-      if (!res.ok) {
-        const msg = (body && (body.error || body.message)) || text || `Login failed (${res.status})`;
-        setError(msg);
-        return;
-      }
-
+      // Keep your flexible token extraction
       const token = extractToken(body);
       if (!token) {
         setError("Invalid login response (no token).");
         return;
       }
 
-      // 2) ALWAYS fetch full profile after login
-      const meRes = await fetch("/coaches/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const meText = await meRes.text();
-      const meBody = safeJsonParse(meText) ?? {};
-      if (!meRes.ok) {
-        setError("Logged in, but failed to load profile.");
-        return;
-      }
+      // 2) Persist token BEFORE requesting /me so the helper adds Authorization
+      localStorage.setItem("token", token);
+      setToken(token);
 
-      // Accept either direct object or nested
+      // 3) Load profile
+      const meBody = await getMyProfile();
       const coach =
         (meBody.coach || meBody.user) ??
         meBody.data ??
@@ -81,13 +67,11 @@ export default function LoginForm() {
         return;
       }
 
-      // 3) Persist full session
-      localStorage.setItem("token", token);
-      setToken(token)
       localStorage.setItem("coach", JSON.stringify(coach));
-
-     navigate(`/dashboard/coaches/${coach.id}`);
+      const id = coach.id ?? coach.coach_id;
+      navigate(`/dashboard/coaches/${id}`);
     } catch (err) {
+      // api() throws with readable response text when possible
       setError(err?.message || "Network error");
     } finally {
       setSubmitting(false);
@@ -102,7 +86,11 @@ export default function LoginForm() {
           Login
         </h2>
 
-        {error && <div className="text-red-300 text-sm mb-3" role="alert">{error}</div>}
+        {error && (
+          <div className="text-red-300 text-sm mb-3" role="alert">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
