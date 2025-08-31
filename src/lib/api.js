@@ -110,7 +110,7 @@ export async function deleteClient(id) {
 }
 
 /* ========= EXERCISES ========= */
-// Force trailing slash to match backend route behavior
+// trailing slash to match your backend
 export async function listExercises(params = {}) {
   const qs = new URLSearchParams(
     Object.fromEntries(
@@ -126,12 +126,12 @@ export async function getExercise(id) {
 }
 
 /* ========= LOAD WEIGHTS ========= */
-// Updated: accept (exerciseId, unit) and call /exercises/:id/weights
+// Use the exercise-specific endpoint your backend exposes
 export async function getExerciseWeights(exerciseId, unit = "kg") {
   const qs = new URLSearchParams({ unit }).toString();
   return api(`/exercises/${exerciseId}/weights?${qs}`, { method: "GET" });
 
-  // If you want to use the alternate route added in load_weights_routes:
+  // Alternate route if you added it under /load-weights:
   // return api(`/load-weights/by-exercise/${exerciseId}/?${qs}`, { method: "GET" });
 }
 

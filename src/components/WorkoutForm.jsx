@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+// src/components/WorkoutForm.jsx
+import React, { useEffect, useState } from 'react';
 import {
   listExercises,
   getExerciseWeights,
@@ -127,7 +128,7 @@ export default function WorkoutForm({
   // ======== Load available loads when exercise or units change ========
   useEffect(() => {
     if (!exerciseId) return;
-    const unit = top.units.toLowerCase();
+    const unit = (top.units || 'kg').toLowerCase();
     const ctrl = new AbortController();
 
     setLoadsLoading(true);
@@ -209,32 +210,40 @@ export default function WorkoutForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const toNum = (v) => {
-      const n = parseFloat(String(v).replace(',', '.'));
-      return Number.isFinite(n) ? n : null;
+    // Convert "", null -> number (0 default) so backend validator accepts payload
+    const toNum = (v, def = 0) => {
+      if (v === null || v === undefined || v === "") return def;
+      const n = parseFloat(String(v).replace(",", "."));
+      return Number.isFinite(n) ? n : def;
     };
 
     try {
       const payload = {
         client_id: clientId,
-        coach_id: coachId,
+        coach_id: coachId ?? null,
         exercise_id: exerciseId ? Number(exerciseId) : null,
-        units: top.units,
-        rm: toNum(top.rm),
-        rm_percentage: toNum(top.rm_percentage),
-        max_repetitions: toNum(top.max_repetitions),
-        rir_repetitions: toNum(top.rir_repetitions),
-        cc_tempo: toNum(top.cc_tempo),
-        iso_tempo_one: toNum(top.iso1),
-        ecc_tempo: toNum(top.ecc),
-        iso_tempo_two: toNum(top.iso2),
-        reps: toNum(bottom.reps),
-        sets: toNum(bottom.sets),
-        exercise_time: toNum(bottom.exercise_time),
-        rom: toNum(bottom.rom),
-        weight: toNum(bottom.weight),
-        repetitions: toNum(bottom.repetitions),
+
+        units: (top.units || "kg").toLowerCase(),
+
+        rm:                toNum(top.rm, 0),
+        rm_percentage:     toNum(top.rm_percentage, 0),
+        max_repetitions:   toNum(top.max_repetitions, 0),
+        rir_repetitions:   toNum(top.rir_repetitions, 0),
+        cc_tempo:          toNum(top.cc_tempo, 0),
+        iso_tempo_one:     toNum(top.iso1, 0),
+        ecc_tempo:         toNum(top.ecc, 0),
+        iso_tempo_two:     toNum(top.iso2, 0),
+
+        reps:              toNum(bottom.reps, 0),
+        sets:              toNum(bottom.sets, 0),
+        exercise_time:     toNum(bottom.exercise_time, 0),
+        rom:               toNum(bottom.rom, 0),
+        weight:            toNum(bottom.weight, 0),
+        repetitions:       toNum(bottom.repetitions, 0),
       };
+
+      if (!payload.client_id) throw new Error("client_id is required");
+      if (!payload.exercise_id) throw new Error("Please select an exercise");
 
       const saved = isEdit && initialData?.id
         ? await updateWorkout(initialData.id, payload)
@@ -242,11 +251,31 @@ export default function WorkoutForm({
 
       if (typeof onSaved === 'function') onSaved(saved?.workout || saved || payload);
 
-      // reset only after create
       if (!isEdit) {
         setExerciseId('');
-        setTop(emptyTop);
-        setBottom(emptyBottom);
+        setTop({
+          units: 'kg',
+          rm: '',
+          rm_percentage: '',
+          max_repetitions: '',
+          rir_repetitions: '',
+          cc_tempo: '',
+          iso1: '',
+          ecc: '',
+          iso2: '',
+        });
+        setBottom({
+          reps: '',
+          sets: '',
+          exercise_time: '',
+          rom: '',
+          weight: '',
+          repetitions: '',
+          total_tempo: '',
+          tut: '',
+          total_rest: '',
+          density: '',
+        });
         setAchievablePercents([]);
       }
     } catch (err) {
