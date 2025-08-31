@@ -1,22 +1,14 @@
-import { Link } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useAuthContext } from "../context/AuthContextProvider";
-import { useNavigate } from "react-router-dom";
 
 function Navbar() {
   const [showNavMenu, setShowNavMenu] = useState(false);
   const { token, logout } = useAuthContext();
   const navigate = useNavigate();
 
-  const coach = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("coach") || "{}");
-    } catch {
-      return {};
-    }
-  }, []);
-
-  const isLoggedIn = Boolean(token && (coach?.id || coach?._id));
+  // Treat user as logged out unless we definitely have a token
+  const isLoggedIn = Boolean(token);
 
   function handleLogout() {
     logout();
@@ -69,8 +61,8 @@ function Navbar() {
 
       {/* Mobile menu bar (below navbar) */}
       {showNavMenu && (
-        <div className="fixed top-18 left-0 right-0 bg-black/50 z-50 md:hidden">
-          <div className="flex justify-center space-x-8 py-1.5 text-white">
+        <div className="fixed top-18 left-0 right-0  z-50 md:hidden">
+          <div className="flex justify-center space-x-8 py-1.5 text-white hover:text-orange-500">
             {!isLoggedIn && (
               <Link to="/" onClick={() => setShowNavMenu(false)}>
                 Home
@@ -83,7 +75,7 @@ function Navbar() {
                   setShowNavMenu(false);
                   handleLogout();
                 }}
-                className="cursor-pointer whitespace-nowrap hover:underline"
+                className="cursor-pointer whitespace-nowrap on"
               >
                 Log Out
               </span>
