@@ -1,3 +1,4 @@
+// src/components/ClientHub.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ClientForm from "./ClientForm";
@@ -52,11 +53,12 @@ function ClientHub({ routeClientId = null }) {
 
   // ----- API helpers (scoped to this file) -----
   const listClientsForCoach = async (cid) => {
-    // your backend accepts the query param; keep the trailing slash to hit the blueprint root
     return api(`/clients/?coach_id=${encodeURIComponent(cid)}`, { method: "GET" });
   };
+
+  // IMPORTANT: trailing slash to avoid Flask redirect issues
   const listWorkoutsForClient = async (client_id) => {
-    return api(`/workouts?client_id=${encodeURIComponent(client_id)}`, { method: "GET" });
+    return api(`/workouts/?client_id=${encodeURIComponent(client_id)}`, { method: "GET" });
   };
 
   // Load clients
@@ -68,7 +70,6 @@ function ClientHub({ routeClientId = null }) {
       const data = await listClientsForCoach(coachId);
       const list = Array.isArray(data) ? data : data.clients || [];
       setClients(list);
-      // Don't forcibly set selection here; let the URL-sync effect decide.
     } catch (e) {
       setErr(e.message || "Failed to load clients");
     } finally {
@@ -113,7 +114,6 @@ function ClientHub({ routeClientId = null }) {
   useEffect(() => {
     if (!clients.length) return;
 
-    // 1) If URL has an id, select it if present
     if (routeClientId) {
       const idx = clients.findIndex(c => c.id === Number(routeClientId));
       if (idx !== -1) {
@@ -121,26 +121,23 @@ function ClientHub({ routeClientId = null }) {
         setPage(Math.floor(idx / pageSize));
         return;
       }
-      // If URL id isn't found in list, show a small note and fall back
       setNotFound("Client not found or not accessible.");
     }
 
-    // 2) If nothing selected, default to first client and reflect in URL
     if (!selectedClientId && clients[0]) {
       const firstId = clients[0].id;
       setSelectedClientId(firstId);
       setPage(0);
-      // Keep the URL canonical
       if (!routeClientId) navigate(`/dashboard/clients/${firstId}`, { replace: true });
     }
   }, [clients, routeClientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Click on left list only changes selection (paging itself does not)
+  // Click on left list only changes selection
   const handleClientClick = (absoluteIndex) => {
     const c = clients[absoluteIndex];
     if (!c) return;
     setSelectedClientId(c.id);
-    setPage(Math.floor(absoluteIndex / pageSize)); // keep it visible on the left
+    setPage(Math.floor(absoluteIndex / pageSize));
     navigate(`/dashboard/clients/${c.id}`);
   };
 
@@ -193,22 +190,14 @@ function ClientHub({ routeClientId = null }) {
 
   return (
     <>
-      {/* local CSS to hide scrollbars in this component only */}
       <style>{`
-        .no-scrollbar {
-          scrollbar-width: none; /* Firefox */
-        }
-        .no-scrollbar::-webkit-scrollbar {
-          width: 0;
-          height: 0;
-        }
+        .no-scrollbar { scrollbar-width: none; }
+        .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; }
       `}</style>
 
-      {/* Full-height shell with NO page scrollbar */}
       <div className="h-screen overflow-hidden bg-transparent text-white">
-        {/* Two-column grid: left fluid, right fixed 620px; prevents right-pane shifting */}
         <div className="grid grid-cols-[minmax(0,1fr)_620px] gap-12 h-full">
-          {/* LEFT SIDE (clients list + search) — scrollable but scrollbar hidden */}
+          {/* LEFT SIDE */}
           <div className="min-w-0 overflow-auto no-scrollbar pr-2">
             <h2 className="text-4xl font-bold text-white mt-5">Clients</h2>
             <p className="text-sm max-w-[45ch] leading-tight">
@@ -216,7 +205,6 @@ function ClientHub({ routeClientId = null }) {
               and keep all their information in one place.
             </p>
 
-            {/* Search */}
             <form onSubmit={performSearch} className="mt-4 flex items-center max-w-sm border border-gray-500 rounded-sm overflow-hidden">
               <input
                 type="text"
@@ -244,7 +232,6 @@ function ClientHub({ routeClientId = null }) {
             )}
 
             <div className="flex gap-12 mt-10">
-              {/* Left column (first half) */}
               <div>
                 {pageClients.slice(0, Math.ceil(pageClients.length / 2)).map((c, i) => {
                   const absoluteIndex = start + i;
@@ -259,7 +246,6 @@ function ClientHub({ routeClientId = null }) {
                 })}
               </div>
 
-              {/* Middle column (second half) */}
               <div>
                 {pageClients.slice(Math.ceil(pageClients.length / 2)).map((c, j) => {
                   const i = j + Math.ceil(pageClients.length / 2);
@@ -277,7 +263,7 @@ function ClientHub({ routeClientId = null }) {
             </div>
           </div>
 
-          {/* RIGHT SIDE (details + tabs) — scrollable but scrollbar hidden */}
+          {/* RIGHT SIDE */}
           <div className="-mt-6 w-[620px] overflow-auto no-scrollbar">
             <div className="flex items-start gap-3 p-6 border-b border-gray-600 ">
               <img src="/images/portrait.png" alt="Client portrait" className="w-19 h-19 rounded-full object-cover" />
@@ -316,7 +302,7 @@ function ClientHub({ routeClientId = null }) {
               <button className={`hover:text-orange-500 ${activeTab === 'goals' ? 'text-white' : ''}`} onClick={() => setActiveTab('goals')}>Goals</button>
             </div>
 
-            {/* Workouts tab content (loads only when clicked) */}
+            {/* Workouts tab */}
             {activeTab === 'workouts' && (
               <div className="mt-4">
                 <button
@@ -469,8 +455,6 @@ function ClientHub({ routeClientId = null }) {
                   try {
                     await apiDeleteClient(clientToDelete.id);
                     await loadClients();
-
-                    // Choose next selection & reflect in URL
                     const remaining = clients.filter(c => c.id !== clientToDelete.id);
                     if (remaining.length) {
                       const next = remaining[0].id;
