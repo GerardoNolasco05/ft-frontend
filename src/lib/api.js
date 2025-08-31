@@ -3,7 +3,7 @@ export const API_BASE =
   import.meta.env.VITE_API_BASE ??
   (import.meta.env.MODE === "development"
     ? "http://localhost:5000"
-    : "https://ft-backend-i2uk.onrender.com"); // safe fallback
+    : "https://ft-backend-i2uk.onrender.com"); 
 
 export async function api(path, init = {}) {
   const token = localStorage.getItem("token");
