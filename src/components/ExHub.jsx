@@ -1,6 +1,7 @@
 // src/pages/ExHub.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { listExercises, getExercise } from "@/lib/api"; // 👈 use API wrapper
+import { listExercises, getExercise } from "../lib/api";
+
 
 // Local images (adjust paths if yours differ)
 import orange from "/images/orange.png";
