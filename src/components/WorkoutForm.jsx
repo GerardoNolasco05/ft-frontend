@@ -1,10 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {
+  listExercises,
+  getExerciseWeights,
+  createWorkout,
+  updateWorkout,
+} from '../lib/api';
 
 /**
  * WorkoutForm
  * - mode: "create" | "edit"
  * - clientId: number (required)
- * - coachId: number (optional for backend)
+ * - coachId: number (optional)
  * - initialData: workout object (for edit)
  * - onSaved(workout): callback after successful POST/PUT
  * - onClose(): close modal
@@ -26,12 +32,11 @@ export default function WorkoutForm({
   const [exLoading, setExLoading] = useState(false);
   const [exError, setExError] = useState('');
 
-  // Available implementable loads for this exercise+unit (e.g., 2.5kg steps, dumbbells, etc.)
-  const [availLoads, setAvailLoads] = useState([]);      // [{value, unit, ...}] absolute weights
+  const [availLoads, setAvailLoads] = useState([]);      // [{value, unit, ...}]
   const [loadsLoading, setLoadsLoading] = useState(false);
   const [loadsError, setLoadsError] = useState('');
 
-  // --------- Top block (your workout inputs) ---------
+  // --------- Top block ---------
   const emptyTop = {
     units: 'kg',
     rm: '',
@@ -45,17 +50,16 @@ export default function WorkoutForm({
   };
   const [top, setTop] = useState(emptyTop);
 
-  // Precomputed/filtered % options you can actually load
-  // Each item: { pct: number, load: number }
+  // Available % options based on actual loads
   const [achievablePercents, setAchievablePercents] = useState([]);
 
-  // --------- Bottom block (set/rep meta) ---------
+  // --------- Bottom block ---------
   const emptyBottom = {
     reps: '',
     sets: '',
     exercise_time: '',
     rom: '',
-    weight: '',        // working load auto-set when %1RM chosen
+    weight: '',
     repetitions: '',
     total_tempo: '',
     tut: '',
@@ -64,17 +68,6 @@ export default function WorkoutForm({
   };
   const [bottom, setBottom] = useState(emptyBottom);
 
-  // --------- Submit status ---------
-  const [submitStatus, setSubmitStatus] = useState({ status: 'idle', message: '' }); // 'idle' | 'saving' | 'success' | 'error'
-
-  // Auto-hide inline success after 2s (parent will close the modal)
-  useEffect(() => {
-    if (submitStatus.status !== 'success') return;
-    const t = setTimeout(() => setSubmitStatus({ status: 'idle', message: '' }), 2000);
-    return () => clearTimeout(t);
-  }, [submitStatus.status]);
-
-  // ======== Helpers ========
   const uniqueSortedLoads = (rows) => {
     const map = new Map();
     rows.forEach((r) => {
@@ -116,14 +109,11 @@ export default function WorkoutForm({
 
   // ======== Load exercises on mount ========
   useEffect(() => {
-    const token = localStorage.getItem('token');
     const ctrl = new AbortController();
     setExLoading(true);
     setExError('');
-    fetch('/exercises/', { headers: { Authorization: `Bearer ${token}` }, signal: ctrl.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load exercises (${res.status})`);
-        const data = await res.json();
+    listExercises()
+      .then((data) => {
         const list = Array.isArray(data) ? data : data.exercises || [];
         setExercises(list);
       })
@@ -137,7 +127,6 @@ export default function WorkoutForm({
   // ======== Load available loads when exercise or units change ========
   useEffect(() => {
     if (!exerciseId) return;
-    const token = localStorage.getItem('token');
     const unit = top.units.toLowerCase();
     const ctrl = new AbortController();
 
@@ -146,25 +135,15 @@ export default function WorkoutForm({
     setAvailLoads([]);
     setAchievablePercents([]);
 
-    fetch(`/exercises/${exerciseId}/weights?unit=${encodeURIComponent(unit)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: ctrl.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load weights (${res.status})`);
-        const data = await res.json();
-        const rows = Array.isArray(data) ? data : [];
-        const unique = uniqueSortedLoads(rows);
+    getExerciseWeights(exerciseId, unit)
+      .then((rows) => {
+        const unique = uniqueSortedLoads(Array.isArray(rows) ? rows : []);
         setAvailLoads(unique);
-
-        // Clear RM/Percent if now incompatible
         setTop((t) => ({ ...t, rm: '', rm_percentage: '' }));
         setBottom((b) => ({ ...b, weight: '' }));
       })
       .catch((err) => {
-        if (err.name !== 'AbortError') {
-          setLoadsError(err.message);
-        }
+        if (err.name !== 'AbortError') setLoadsError(err.message);
       })
       .finally(() => setLoadsLoading(false));
 
@@ -179,7 +158,6 @@ export default function WorkoutForm({
       setTop((t) => ({ ...t, rm_percentage: '' }));
       return;
     }
-    // Only consider loads you can actually lift (<= RM)
     const candidates = availLoads
       .map((w) => w.value)
       .filter((w) => w > 0 && w <= rmVal);
@@ -188,9 +166,8 @@ export default function WorkoutForm({
     const options = [];
     for (const load of candidates) {
       const pct = Math.round((load / rmVal) * 100);
-      const key = `${pct}`;
-      if (!seen.has(key)) {
-        seen.add(key);
+      if (!seen.has(String(pct))) {
+        seen.add(String(pct));
         options.push({ pct, load });
       }
     }
@@ -213,9 +190,11 @@ export default function WorkoutForm({
     const total_tempo =
       toNum(top.cc_tempo) + toNum(top.iso1) + toNum(top.ecc) + toNum(top.iso2);
     const tut = total_tempo * toNum(bottom.reps) * toNum(bottom.sets);
-    const total_rest = toNum(bottom.sets) > 1 ? (toNum(bottom.sets) - 1) * 60 : 0; // preview only
+    const total_rest = toNum(bottom.sets) > 1 ? (toNum(bottom.sets) - 1) * 60 : 0;
     const duration = tut + total_rest;
-    const density = duration > 0 ? (toNum(bottom.weight) * toNum(bottom.reps) * toNum(bottom.sets)) / duration : 0;
+    const density = duration > 0
+      ? (toNum(bottom.weight) * toNum(bottom.reps) * toNum(bottom.sets)) / duration
+      : 0;
 
     setBottom((b) => ({
       ...b,
@@ -229,7 +208,6 @@ export default function WorkoutForm({
   // ======== Submit to backend (/workouts/ POST or PUT) ========
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
 
     const toNum = (v) => {
       const n = parseFloat(String(v).replace(',', '.'));
@@ -237,8 +215,6 @@ export default function WorkoutForm({
     };
 
     try {
-      setSubmitStatus({ status: 'saving', message: '' });
-
       const payload = {
         client_id: clientId,
         coach_id: coachId,
@@ -260,34 +236,13 @@ export default function WorkoutForm({
         repetitions: toNum(bottom.repetitions),
       };
 
-      let res;
-      if (isEdit && initialData?.id) {
-        res = await fetch(`/workouts/${initialData.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch('/workouts/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(payload),
-        });
-      }
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Failed to save workout');
-      }
-
-      const saved = await res.json().catch(() => null);
-      setSubmitStatus({
-        status: 'success',
-        message: isEdit ? 'Workout successfully updated!!' : 'Workout successfully created!!',
-      });
+      const saved = isEdit && initialData?.id
+        ? await updateWorkout(initialData.id, payload)
+        : await createWorkout(payload);
 
       if (typeof onSaved === 'function') onSaved(saved?.workout || saved || payload);
 
+      // reset only after create
       if (!isEdit) {
         setExerciseId('');
         setTop(emptyTop);
@@ -295,38 +250,21 @@ export default function WorkoutForm({
         setAchievablePercents([]);
       }
     } catch (err) {
-      setSubmitStatus({ status: 'error', message: err.message || 'Failed to save workout' });
+      alert(err?.message || 'Failed to save workout');
     }
   };
 
-  // ======== STYLES ========
   const baseInput =
     'w-full h-8 sm:h-9 bg-transparent text-center px-2 py-1 border border-white/15 rounded ' +
     'focus:outline-none focus:border-white/40 placeholder-white/30';
 
   return (
     <div className={`w-full border border-white/40 rounded-2xl p-4 sm:p-5 bg-stone-600/50 text-white text-xs sm:text-[12px] ${className}`}>
-      {/* Title row with inline success beside it */}
       <div className="mb-3 flex items-center gap-3">
         <h4 className="text-sm sm:text-base font-semibold">
           {isEdit ? 'Update Workout' : 'Workout'}
         </h4>
-
-        {submitStatus.status === 'success' && (
-          <span
-            className="text-green-300 text-[11px] sm:text-xs"
-            role="status"
-            aria-live="polite"
-          >
-            {submitStatus.message}
-          </span>
-        )}
       </div>
-
-      {/* Error (keep separate so it remains obvious) */}
-      {submitStatus.status === 'error' && (
-        <div className="mb-2 text-red-300 text-xs" role="alert">{submitStatus.message}</div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-4 overflow-x-hidden">
         {/* ===== TOP BLOCK ===== */}
@@ -334,9 +272,7 @@ export default function WorkoutForm({
           <table className="w-full table-auto border-collapse">
             <thead className="bg-orange-500/70 text-neutral-200">
               <tr className="text-center">
-                <th className="border border-white/10 px-2 py-2 whitespace-normal leading-tight" rowSpan={2}>
-                  Exercise Name
-                </th>
+                <th className="border border-white/10 px-2 py-2" rowSpan={2}>Exercise Name</th>
                 <th className="border border-white/10 px-5 py-2" rowSpan={2}>Units</th>
                 <th className="border border-white/10 px-15 py-2" rowSpan={2}>1RM</th>
                 <th className="border border-white/10 px-2 py-2" rowSpan={2}>%1RM</th>
@@ -358,9 +294,7 @@ export default function WorkoutForm({
                 <td className="border border-white/10 px-2 py-2 min-w-[180px]">
                   <select
                     value={exerciseId}
-                    onChange={(e) => {
-                      setExerciseId(e.target.value);
-                    }}
+                    onChange={(e) => setExerciseId(e.target.value)}
                     disabled={exLoading}
                     className={`${baseInput} text-left`}
                   >
@@ -394,7 +328,7 @@ export default function WorkoutForm({
                   </select>
                 </td>
 
-                {/* 1RM (choose from available loads) */}
+                {/* 1RM */}
                 <td className="border border-white/10 px-1 py-2">
                   <select
                     value={String(top.rm)}
@@ -420,7 +354,7 @@ export default function WorkoutForm({
                   </select>
                 </td>
 
-                {/* %1RM (only achievable percentages; scrollable) */}
+                {/* %1RM */}
                 <td className="border border-white/10 px-1 py-2">
                   <select
                     value={String(top.rm_percentage)}
@@ -456,10 +390,7 @@ export default function WorkoutForm({
                       min="0"
                       name={name}
                       value={top[name]}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setTop((t) => ({ ...t, [name]: value }));
-                      }}
+                      onChange={(e) => setTop((t) => ({ ...t, [name]: e.target.value }))}
                       className={baseInput}
                     />
                   </td>
@@ -520,7 +451,7 @@ export default function WorkoutForm({
           </table>
         </div>
 
-        {/* Bottom right: Client ID (read-only) + Submit */}
+        {/* Bottom right: Client ID + Submit */}
         <div className="flex items-center justify-between">
           <div />
           <div className="flex items-end gap-4">
@@ -536,14 +467,9 @@ export default function WorkoutForm({
 
             <button
               type="submit"
-              disabled={submitStatus.status === 'saving'}
-              className="mt-3 border border-white bg-orange-500/70 hover:opacity-90 px-4 py-2 rounded text-[12px] disabled:opacity-60 cursor-pointer"
+              className="mt-3 border border-white bg-orange-500/70 hover:opacity-90 px-4 py-2 rounded text-[12px] cursor-pointer"
             >
-              {submitStatus.status === 'saving'
-                ? 'Saving…'
-                : isEdit
-                ? 'Update Workout'
-                : 'Submit Workout'}
+              {isEdit ? 'Update Workout' : 'Submit Workout'}
             </button>
           </div>
         </div>

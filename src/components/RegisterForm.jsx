@@ -122,10 +122,8 @@ function RegisterForm({ mode = "create", initialData = null, onUpdated, onClose 
         const updatedCoach = await updateCoach(id, payload);
 
         if (typeof onUpdated === "function") onUpdated(updatedCoach);
-        // Notify the app (optional)
         window.dispatchEvent(new CustomEvent("coach:updated", { detail: updatedCoach }));
       } else {
-        // Create (NOTE: backend expects /coaches/ with trailing slash)
         await registerCoach({ ...payload, password: form.password });
         setForm(emptyForm);
         navigate("/login");
@@ -140,7 +138,6 @@ function RegisterForm({ mode = "create", initialData = null, onUpdated, onClose 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 relative">
       <div className="w-full max-w-3xl rounded-3xl border border-white/15 bg-white/10 backdrop-blur-md shadow-2xl p-4 sm:p-6 relative">
-        {/* ❌ close button */}
         {onClose && (
           <button
             type="button"

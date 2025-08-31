@@ -2,6 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ClientForm from "./ClientForm";
 import WorkoutForm from "./WorkoutForm";
+import {
+  api,
+  deleteClient as apiDeleteClient,
+  deleteWorkout as apiDeleteWorkout,
+} from "../lib/api";
 
 function ClientHub({ routeClientId = null }) {
   const navigate = useNavigate();
@@ -45,18 +50,22 @@ function ClientHub({ routeClientId = null }) {
   }, []);
   const coachId = coach?.id;
 
+  // ----- API helpers (scoped to this file) -----
+  const listClientsForCoach = async (cid) => {
+    // your backend accepts the query param; keep the trailing slash to hit the blueprint root
+    return api(`/clients/?coach_id=${encodeURIComponent(cid)}`, { method: "GET" });
+  };
+  const listWorkoutsForClient = async (client_id) => {
+    return api(`/workouts?client_id=${encodeURIComponent(client_id)}`, { method: "GET" });
+  };
+
   // Load clients
   const loadClients = async () => {
     if (!coachId) return;
     setLoading(true);
     setErr("");
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/clients?coach_id=${encodeURIComponent(coachId)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data && (data.error || data.message)) || `Failed (${res.status})`);
+      const data = await listClientsForCoach(coachId);
       const list = Array.isArray(data) ? data : data.clients || [];
       setClients(list);
       // Don't forcibly set selection here; let the URL-sync effect decide.
@@ -142,12 +151,7 @@ function ClientHub({ routeClientId = null }) {
     if (!client_id) return;
     try {
       setWorkoutsLoading(true);
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/workouts?client_id=${encodeURIComponent(client_id)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data && (data.error || data.message)) || `Failed (${res.status})`);
+      const data = await listWorkoutsForClient(client_id);
       const list = Array.isArray(data) ? data : data.workouts || [];
       setWorkouts(list);
       setWPage(0);
@@ -351,7 +355,12 @@ function ClientHub({ routeClientId = null }) {
                         </div>
                         <div className="text-xs flex gap-3">
                           <button className="hover:text-white" onClick={() => { setWorkoutEdit(w); setShowWorkoutModal(true); }}>Update</button>
-                          <button className="text-red-400 hover:text-red-300" onClick={() => setWorkoutEdit({ ...w, __deleteConfirm: true })}>Delete</button>
+                          <button
+                            className="text-red-400 hover:text-red-300"
+                            onClick={() => setWorkoutEdit({ ...w, __deleteConfirm: true })}
+                          >
+                            Delete
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -407,7 +416,6 @@ function ClientHub({ routeClientId = null }) {
                   if (activeTab === "workouts") {
                     await loadWorkouts(selectedClient.id);
                   }
-                  // Auto-close 2s after successful save; the form shows success inline beside the title
                   setTimeout(() => { setShowWorkoutModal(false); setWorkoutEdit(null); }, 2000);
                 }}
               />
@@ -427,12 +435,7 @@ function ClientHub({ routeClientId = null }) {
               <button
                 onClick={async () => {
                   try {
-                    const token = localStorage.getItem("token");
-                    const res = await fetch(`/workouts/${workoutEdit.id}`, {
-                      method: "DELETE",
-                      headers: { Authorization: `Bearer ${token}` },
-                    });
-                    if (!res.ok) console.error("Failed to delete workout", await res.text());
+                    await apiDeleteWorkout(workoutEdit.id);
                     if (activeTab === "workouts" && selectedClientId) await loadWorkouts(selectedClientId);
                   } catch (err) {
                     console.error("Error deleting workout", err);
@@ -464,12 +467,7 @@ function ClientHub({ routeClientId = null }) {
                 onClick={async () => {
                   setDeleting(true);
                   try {
-                    const token = localStorage.getItem("token");
-                    const res = await fetch(`/clients/${clientToDelete.id}`, {
-                      method: "DELETE",
-                      headers: { Authorization: `Bearer ${token}` },
-                    });
-                    if (!res.ok) console.error("Failed to delete client", await res.text());
+                    await apiDeleteClient(clientToDelete.id);
                     await loadClients();
 
                     // Choose next selection & reflect in URL

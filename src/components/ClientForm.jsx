@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createClient, updateClient } from "../lib/api";
 
 const emptyForm = {
   name: "",
@@ -97,44 +98,20 @@ export default function ClientForm({
 
     try {
       setSubmitting(true);
-      const token = localStorage.getItem("token");
 
-      let res, body;
+      let saved;
       if (isEdit) {
         const id = prefill?.id;
         if (!id) {
           setError("Missing client id for update.");
           return;
         }
-        res = await fetch(`/clients/${id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
+        saved = await updateClient(id, payload);
       } else {
-        res = await fetch("/clients/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-        });
+        saved = await createClient(payload);
       }
 
-      body = await res.json().catch(() => null);
-      if (!res.ok) {
-        const msg = (body && (body.error || body.message)) || `Request failed (${res.status})`;
-        setError(msg);
-        return;
-      }
-
-      const client = body?.client || body || { id: prefill?.id ?? null, ...payload };
-
-      if (typeof onSaved === "function") onSaved(client);
+      if (typeof onSaved === "function") onSaved(saved?.client || saved || payload);
       if (typeof onClose === "function") onClose();
     } catch (err) {
       setError(err?.message || "Network error");

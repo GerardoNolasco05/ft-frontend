@@ -145,6 +145,13 @@ function CoachDashboard() {
               Edit Profile
             </button>
 
+            <Link
+              to={`/dashboard/exercises`}
+              className="hover:text-orange-500 transition-colors cursor-pointer"
+            >
+              <p className="text-sm mt-15">Exrcises</p>
+            </Link>
+
             <p className="text-sm mt-2">Schedule</p>
             <p className="text-sm mt-2">Tools</p>
             <p className="text-sm mt-2">Community</p>

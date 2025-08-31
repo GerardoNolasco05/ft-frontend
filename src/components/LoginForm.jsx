@@ -4,13 +4,8 @@ import { useAuthContext } from "../context/AuthContextProvider";
 import { loginCoach, getMyProfile } from "../lib/api";
 
 function safeJsonParse(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(text); } catch { return null; }
 }
-
 function extractToken(body) {
   if (!body || typeof body !== "object") return null;
   return (
@@ -41,27 +36,25 @@ export default function LoginForm() {
     setSubmitting(true);
 
     try {
-      // 1) Login against the backend (goes through API_BASE)
+      // 1) Login via backend (uses API_BASE)
       const body = await loginCoach(form.email, form.password);
 
-      // Keep your flexible token extraction
-      const token = extractToken(body);
+      // optionally keep your robust parse helpers
+      const token = extractToken(body) ?? body?.token;
       if (!token) {
         setError("Invalid login response (no token).");
         return;
       }
 
-      // 2) Persist token BEFORE requesting /me so the helper adds Authorization
+      // 2) Persist and fetch profile
       localStorage.setItem("token", token);
       setToken(token);
-
-      // 3) Load profile
       const meBody = await getMyProfile();
+
       const coach =
         (meBody.coach || meBody.user) ??
         meBody.data ??
         (Array.isArray(meBody) ? meBody[0] : meBody);
-
       if (!coach || !(coach.id || coach.coach_id)) {
         setError("Profile missing id.");
         return;
@@ -71,7 +64,7 @@ export default function LoginForm() {
       const id = coach.id ?? coach.coach_id;
       navigate(`/dashboard/coaches/${id}`);
     } catch (err) {
-      // api() throws with readable response text when possible
+      // api() throws readable messages when possible
       setError(err?.message || "Network error");
     } finally {
       setSubmitting(false);
@@ -86,11 +79,7 @@ export default function LoginForm() {
           Login
         </h2>
 
-        {error && (
-          <div className="text-red-300 text-sm mb-3" role="alert">
-            {error}
-          </div>
-        )}
+        {error && <div className="text-red-300 text-sm mb-3" role="alert">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
