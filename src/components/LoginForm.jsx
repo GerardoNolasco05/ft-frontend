@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../context/AuthContextProvider";
-import { loginCoach, getMyProfile } from "../lib/api";
+import { loginCoach, fetchMe } from "../lib/api";
 
-function safeJsonParse(text) {
-  try { return JSON.parse(text); } catch { return null; }
+function safeJson(obj) {
+  if (!obj || typeof obj !== "object") return {};
+  return obj;
 }
 function extractToken(body) {
-  if (!body || typeof body !== "object") return null;
+  const b = safeJson(body);
   return (
-    body.token ||
-    body.access_token ||
-    body.jwt ||
-    body.id_token ||
-    (body.data && (body.data.token || body.data.access_token)) ||
+    b.token ||
+    b.access_token ||
+    b.jwt ||
+    b.id_token ||
+    (b.data && (b.data.token || b.data.access_token)) ||
     null
   );
 }
@@ -33,38 +34,41 @@ export default function LoginForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSubmitting(true);
 
     try {
-      // 1) Login via backend (uses API_BASE)
-      const body = await loginCoach(form.email, form.password);
+      setSubmitting(true);
 
-      // optionally keep your robust parse helpers
-      const token = extractToken(body) ?? body?.token;
+      // 1) Login against the API_BASE backend
+      const loginResponse = await loginCoach(form.email, form.password);
+
+      const token = extractToken(loginResponse);
       if (!token) {
         setError("Invalid login response (no token).");
         return;
       }
 
-      // 2) Persist and fetch profile
-      localStorage.setItem("token", token);
-      setToken(token);
-      const meBody = await getMyProfile();
+      // 2) Fetch the profile using the token
+      const meBody = await fetchMe(token);
 
       const coach =
         (meBody.coach || meBody.user) ??
         meBody.data ??
         (Array.isArray(meBody) ? meBody[0] : meBody);
+
       if (!coach || !(coach.id || coach.coach_id)) {
         setError("Profile missing id.");
         return;
       }
 
+      // 3) Persist session
+      localStorage.setItem("token", token);
+      setToken(token);
       localStorage.setItem("coach", JSON.stringify(coach));
-      const id = coach.id ?? coach.coach_id;
-      navigate(`/dashboard/coaches/${id}`);
+
+      // 4) Go to dashboard
+      const coachId = coach.id ?? coach.coach_id;
+      navigate(`/dashboard/coaches/${coachId}`);
     } catch (err) {
-      // api() throws readable messages when possible
       setError(err?.message || "Network error");
     } finally {
       setSubmitting(false);
