@@ -3,8 +3,9 @@ export const API_BASE =
   import.meta.env.VITE_API_BASE ??
   (import.meta.env.MODE === "development"
     ? "http://localhost:5000"
-    : "https://ft-backend-i2uk.onrender.com"); 
+    : "https://ft-backend-i2uk.onrender.com");
 
+// Core fetch wrapper
 export async function api(path, init = {}) {
   const token = localStorage.getItem("token");
   const headers = new Headers(init.headers || {});
@@ -20,12 +21,11 @@ export async function api(path, init = {}) {
     } catch {}
     throw new Error(msg);
   }
-  // Allow endpoints that return no content
   const ct = res.headers.get("content-type") || "";
   return ct.includes("application/json") ? res.json() : null;
 }
 
-/* ---- Auth helpers ---- */
+/* ========= AUTH ========= */
 export async function loginCoach(email, password) {
   return api(`/coaches/login`, {
     method: "POST",
@@ -50,7 +50,26 @@ export async function fetchMe(token) {
   try { return JSON.parse(text || "{}"); } catch { return {}; }
 }
 
-/* ---- Clients ---- */
+/* ========= COACHES ========= */
+export async function registerCoach(payload) {
+  // POST /coaches/
+  return api(`/coaches/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCoach(id, payload) {
+  // PUT /coaches/:id
+  return api(`/coaches/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+/* ========= CLIENTS ========= */
 export async function createClient(payload) {
   return api(`/clients/`, {
     method: "POST",
@@ -58,6 +77,7 @@ export async function createClient(payload) {
     body: JSON.stringify(payload),
   });
 }
+
 export async function updateClient(id, payload) {
   return api(`/clients/${id}`, {
     method: "PUT",
@@ -65,11 +85,12 @@ export async function updateClient(id, payload) {
     body: JSON.stringify(payload),
   });
 }
+
 export async function deleteClient(id) {
   return api(`/clients/${id}`, { method: "DELETE" });
 }
 
-/* ---- Workouts ---- */
+/* ========= WORKOUTS ========= */
 export async function deleteWorkout(id) {
   return api(`/workouts/${id}`, { method: "DELETE" });
 }
