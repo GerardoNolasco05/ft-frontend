@@ -126,14 +126,13 @@ export async function getExercise(id) {
 }
 
 /* ========= LOAD WEIGHTS ========= */
-export async function getExerciseWeights(params = {}) {
-  const qs = new URLSearchParams(
-    Object.fromEntries(
-      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
-    )
-  ).toString();
-  const suffix = qs ? `?${qs}` : "";
-  return api(`/load-weights${suffix}`, { method: "GET" });
+// Updated: accept (exerciseId, unit) and call /exercises/:id/weights
+export async function getExerciseWeights(exerciseId, unit = "kg") {
+  const qs = new URLSearchParams({ unit }).toString();
+  return api(`/exercises/${exerciseId}/weights?${qs}`, { method: "GET" });
+
+  // If you want to use the alternate route added in load_weights_routes:
+  // return api(`/load-weights/by-exercise/${exerciseId}/?${qs}`, { method: "GET" });
 }
 
 /* ========= WORKOUTS ========= */
