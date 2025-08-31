@@ -52,7 +52,7 @@ export async function fetchMe(token) {
 
 /* ========= COACHES ========= */
 export async function registerCoach(payload) {
-  // POST /coaches/
+  // POST to blueprint root prefers trailing slash on your backend
   return api(`/coaches/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -61,7 +61,6 @@ export async function registerCoach(payload) {
 }
 
 export async function updateCoach(id, payload) {
-  // PUT /coaches/:id
   return api(`/coaches/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -90,7 +89,49 @@ export async function deleteClient(id) {
   return api(`/clients/${id}`, { method: "DELETE" });
 }
 
+/* ========= EXERCISES ========= */
+// Optional params: { q, muscle_group, page, page_size, ... }
+export async function listExercises(params = {}) {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
+    )
+  ).toString();
+  const suffix = qs ? `?${qs}` : "";
+  return api(`/exercises${suffix}`, { method: "GET" });
+}
+
+/* ========= LOAD WEIGHTS ========= */
+// Your backend has a load_weights blueprint at /load-weights
+// Accepts common query params; adjust as your API expects
+export async function getExerciseWeights(params = {}) {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
+    )
+  ).toString();
+  const suffix = qs ? `?${qs}` : "";
+  return api(`/load-weights${suffix}`, { method: "GET" });
+}
+
 /* ========= WORKOUTS ========= */
+export async function createWorkout(payload) {
+  // POST prefers trailing slash on your backend
+  return api(`/workouts/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateWorkout(id, payload) {
+  return api(`/workouts/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function deleteWorkout(id) {
   return api(`/workouts/${id}`, { method: "DELETE" });
 }
