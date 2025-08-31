@@ -12,8 +12,11 @@ export async function api(path, init = {}) {
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+
+  // read text once; decide how to parse
+  const text = await res.text().catch(() => "");
+
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
     let msg = `HTTP ${res.status}`;
     try {
       const j = JSON.parse(text || "{}");
@@ -21,8 +24,9 @@ export async function api(path, init = {}) {
     } catch {}
     throw new Error(msg);
   }
+
   const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json") ? res.json() : null;
+  return ct.includes("application/json") ? JSON.parse(text || "{}") : null;
 }
 
 /* ========= AUTH ========= */
@@ -52,7 +56,6 @@ export async function fetchMe(token) {
 
 /* ========= COACHES ========= */
 export async function registerCoach(payload) {
-  // POST to blueprint root prefers trailing slash on your backend
   return api(`/coaches/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -90,7 +93,6 @@ export async function deleteClient(id) {
 }
 
 /* ========= EXERCISES ========= */
-// Optional params: { q, muscle_group, page, page_size, ... }
 export async function listExercises(params = {}) {
   const qs = new URLSearchParams(
     Object.fromEntries(
@@ -98,12 +100,15 @@ export async function listExercises(params = {}) {
     )
   ).toString();
   const suffix = qs ? `?${qs}` : "";
-  return api(`/exercises${suffix}`, { method: "GET" });
+  return api(`/exercises${suffix}`, { method: "GET" }); // no trailing slash needed
+}
+
+// 👇 NEW: fetch one exercise by id (used by ExHub.jsx)
+export async function getExercise(id) {
+  return api(`/exercises/${id}`, { method: "GET" });
 }
 
 /* ========= LOAD WEIGHTS ========= */
-// Your backend has a load_weights blueprint at /load-weights
-// Accepts common query params; adjust as your API expects
 export async function getExerciseWeights(params = {}) {
   const qs = new URLSearchParams(
     Object.fromEntries(
@@ -116,7 +121,6 @@ export async function getExerciseWeights(params = {}) {
 
 /* ========= WORKOUTS ========= */
 export async function createWorkout(payload) {
-  // POST prefers trailing slash on your backend
   return api(`/workouts/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

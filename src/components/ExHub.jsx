@@ -1,4 +1,6 @@
+// src/pages/ExHub.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { listExercises, getExercise } from "@/lib/api"; // 👈 use API wrapper
 
 // Local images (adjust paths if yours differ)
 import orange from "/images/orange.png";
@@ -16,6 +18,7 @@ function ExHub() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+  // if you store a JWT, your api.js uses it automatically; keeping this for consistency
   const token = useMemo(() => localStorage.getItem("token") || "", []);
 
   // Map index -> image (idx is 0-based)
@@ -36,29 +39,20 @@ function ExHub() {
   // Load minimal list once
   useEffect(() => {
     let ignore = false;
-
     (async () => {
       try {
         setErr("");
-        const res = await fetch("/exercises/", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error((data && data.error) || `Failed (${res.status})`);
-        const arr = Array.isArray(data) ? data : [];
+        const arr = await listExercises();  // 👈 hits `${API_BASE}/exercises`
         if (ignore) return;
-
-        setList(arr);
+        const safe = Array.isArray(arr) ? arr : [];
+        setList(safe);
         setIdx(0);
-        if (arr.length) setShownId(arr[0].id); // render first immediately
+        if (safe.length) setShownId(safe[0].id); // render first immediately
       } catch (e) {
-        if (!ignore) setErr((e && e.message) || "Failed to load exercises");
+        if (!ignore) setErr(e?.message || "Failed to load exercises");
       }
     })();
-
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [token]);
 
   // When index changes, fetch full details for that id if not cached.
@@ -79,25 +73,18 @@ function ExHub() {
       try {
         setLoading(true);
         setErr("");
-        const res = await fetch(`/exercises/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error((data && data.error) || `Failed (${res.status})`);
+        const data = await getExercise(id);  // 👈 hits `${API_BASE}/exercises/:id`
         if (ignore) return;
-
         setCache((c) => ({ ...c, [id]: data }));
         setShownId(id); // only swap view after details exist (no flicker)
       } catch (e) {
-        if (!ignore) setErr((e && e.message) || "Failed to load exercise details");
+        if (!ignore) setErr(e?.message || "Failed to load exercise details");
       } finally {
         if (!ignore) setLoading(false);
       }
     })();
 
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [idx, list, token]); // don't include cache/shownId to avoid loops
 
   // Navigation: no wrap-around; disable at ends
