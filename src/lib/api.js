@@ -11,22 +11,37 @@ export async function api(path, init = {}) {
   const headers = new Headers(init.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      mode: "cors",
+      credentials: "omit",
+    });
 
-  // read text once; decide how to parse
-  const text = await res.text().catch(() => "");
+    // Read once; decide how to parse
+    const text = await res.text().catch(() => "");
 
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      const j = JSON.parse(text || "{}");
-      msg = j.error || j.message || msg;
-    } catch {}
-    throw new Error(msg);
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        const j = JSON.parse(text || "{}");
+        msg = j.error || j.message || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      // Helpful when a redirect/HTML page sneaks in
+      console.error("Non-JSON response for", path, "→", text.slice(0, 300));
+      throw new Error("API did not return JSON");
+    }
+    return JSON.parse(text || "{}");
+  } catch (e) {
+    // Surfaces the real reason instead of a generic "Failed to fetch"
+    throw new Error(`Network error fetching ${path}: ${e?.message || e}`);
   }
-
-  const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json") ? JSON.parse(text || "{}") : null;
 }
 
 /* ========= AUTH ========= */
@@ -41,6 +56,8 @@ export async function loginCoach(email, password) {
 export async function fetchMe(token) {
   const res = await fetch(`${API_BASE}/coaches/me`, {
     headers: { Authorization: `Bearer ${token}` },
+    mode: "cors",
+    credentials: "omit",
   });
   const text = await res.text();
   if (!res.ok) {
@@ -93,6 +110,7 @@ export async function deleteClient(id) {
 }
 
 /* ========= EXERCISES ========= */
+// Force trailing slash to match backend route behavior
 export async function listExercises(params = {}) {
   const qs = new URLSearchParams(
     Object.fromEntries(
@@ -100,12 +118,11 @@ export async function listExercises(params = {}) {
     )
   ).toString();
   const suffix = qs ? `?${qs}` : "";
-  return api(`/exercises${suffix}`, { method: "GET" }); // no trailing slash needed
+  return api(`/exercises/${suffix}`, { method: "GET" });
 }
 
-// 👇 NEW: fetch one exercise by id (used by ExHub.jsx)
 export async function getExercise(id) {
-  return api(`/exercises/${id}`, { method: "GET" });
+  return api(`/exercises/${id}/`, { method: "GET" });
 }
 
 /* ========= LOAD WEIGHTS ========= */
